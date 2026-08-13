@@ -20,16 +20,16 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      # 1. تثبيت وحل مشاكل Ruby & CocoaPods
+      # 1. إعداد بيئة Ruby و CocoaPods
       - name: Set up Ruby & CocoaPods
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2' # استخدام إصدار ثابت ومستقر من Ruby لتفادي أخطاء Ruby 3.4
+          ruby-version: '3.2'
 
       - name: Install CocoaPods
         run: gem install cocoapods
 
-      # 2. إعداد Flutter
+      # 2. إعداد بيئة Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -39,25 +39,29 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # 3. إعداد Pods وتحديد المنصة لتفادي أخطاء CocoaPods
-      - name: Setup Pods
+      # 3. حل مشكلة platform في Podfile وتحديث المستودع تلقائياً
+      - name: Fix Podfile & Setup Pods
         run: |
           cd ios
+          sed -i '' "s/# platform :ios, '.*'/platform :ios, '15.0'/g" Podfile || true
+          if ! grep -q "platform :ios" Podfile; then
+            echo "platform :ios, '15.0'" | cat - Podfile > temp && mv temp Podfile
+          fi
           pod repo update || true
           cd ..
 
-      # 4. بناء التطبيق لـ iOS
+      # 4. بناء تطبيق iOS (بدون توقيع)
       - name: Build iOS App (No Codesign)
         run: flutter build ios --release --no-codesign
 
-      # 5. ضغط ملف الـ Runner وتجهيز الـ IPA
+      # 5. تحويل المخرج إلى ملف .ipa
       - name: Create IPA File
         run: |
           mkdir -p Payload
           mv build/ios/iphoneos/Runner.app Payload/
           zip -r MiniGamesHub.ipa Payload
 
-      # 6. رفع ملف الـ IPA كـ Artifact
+      # 6. رفع ملف الـ IPA لتنزيله
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
