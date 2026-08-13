@@ -3,48 +3,61 @@ name: Build iOS IPA
 on:
   push:
     branches:
-      - main # أو master حسب اسم الفرع الرئيسي لديك
-  workflow_dispatch: # يتيح لك تشغيل الـ Workflow يدوياً في أي وقت
+      - main
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
-      # 1. جلب كود المشروع من GitHub
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. إعداد بيئة Java (ضرورية لبعض أدوات Flutter)
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # 3. إعداد بيئة Flutter
+      # 1. تثبيت وحل مشاكل Ruby & CocoaPods
+      - name: Set up Ruby & CocoaPods
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2' # استخدام إصدار ثابت ومستقر من Ruby لتفادي أخطاء Ruby 3.4
+
+      - name: Install CocoaPods
+        run: gem install cocoapods
+
+      # 2. إعداد Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
           cache: true
 
-      # 4. تثبيت حزم المشروع (Pub Get)
       - name: Install dependencies
         run: flutter pub get
 
-      # 5. بناء ملف الـ Payload وتجميع تطبيق الـ iOS بدون توقيع (Unsigned IPA)
+      # 3. إعداد Pods وتحديد المنصة لتفادي أخطاء CocoaPods
+      - name: Setup Pods
+        run: |
+          cd ios
+          pod repo update || true
+          cd ..
+
+      # 4. بناء التطبيق لـ iOS
       - name: Build iOS App (No Codesign)
         run: flutter build ios --release --no-codesign
 
-      # 6. تحويل مجلد الـ Runner.app إلى ملف .ipa جاهز
+      # 5. ضغط ملف الـ Runner وتجهيز الـ IPA
       - name: Create IPA File
         run: |
           mkdir -p Payload
           mv build/ios/iphoneos/Runner.app Payload/
           zip -r MiniGamesHub.ipa Payload
 
-      # 7. رفع ملف الـ IPA كـ Artifact في GitHub لتستطيع تنزيله
+      # 6. رفع ملف الـ IPA كـ Artifact
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
