@@ -20,7 +20,7 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      # 1. إعداد بيئة Ruby و CocoaPods
+      # 1. إعداد بيئة Ruby مستقرة لتعمل مع CocoaPods دون تعارض الإصدارات
       - name: Set up Ruby & CocoaPods
         uses: ruby/setup-ruby@v1
         with:
@@ -36,11 +36,14 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Install dependencies
-        run: flutter pub get
+      # 3. إيقاف Swift Package Manager لمنع التعارض مع google_mobile_ads و webview
+      - name: Disable Swift Package Manager & Fetch Packages
+        run: |
+          flutter config --no-enable-swift-package-manager
+          flutter pub get
 
-      # 3. حل مشكلة platform في Podfile وتحديث المستودع تلقائياً
-      - name: Fix Podfile & Setup Pods
+      # 4. ضبط ملف Podfile وتأكيد منصة iOS 15.0 تلقائياً
+      - name: Fix Podfile & Prepare CocoaPods
         run: |
           cd ios
           sed -i '' "s/# platform :ios, '.*'/platform :ios, '15.0'/g" Podfile || true
@@ -50,18 +53,18 @@ jobs:
           pod repo update || true
           cd ..
 
-      # 4. بناء تطبيق iOS (بدون توقيع)
+      # 5. بناء التطبيق بنجاح بصيغة Runner.app بدون توقيع شهادات
       - name: Build iOS App (No Codesign)
         run: flutter build ios --release --no-codesign
 
-      # 5. تحويل المخرج إلى ملف .ipa
+      # 6. ضغط مجلد التطبيق إلى صيغة IPA
       - name: Create IPA File
         run: |
           mkdir -p Payload
           mv build/ios/iphoneos/Runner.app Payload/
           zip -r MiniGamesHub.ipa Payload
 
-      # 6. رفع ملف الـ IPA لتنزيله
+      # 7. رفع ملف الـ IPA في قسم الـ Artifacts ليكون جاهزاً للتحميل
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
