@@ -1,0 +1,52 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches:
+      - main # أو master حسب اسم الفرع الرئيسي لديك
+  workflow_dispatch: # يتيح لك تشغيل الـ Workflow يدوياً في أي وقت
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      # 1. جلب كود المشروع من GitHub
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. إعداد بيئة Java (ضرورية لبعض أدوات Flutter)
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      # 3. إعداد بيئة Flutter
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      # 4. تثبيت حزم المشروع (Pub Get)
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 5. بناء ملف الـ Payload وتجميع تطبيق الـ iOS بدون توقيع (Unsigned IPA)
+      - name: Build iOS App (No Codesign)
+        run: flutter build ios --release --no-codesign
+
+      # 6. تحويل مجلد الـ Runner.app إلى ملف .ipa جاهز
+      - name: Create IPA File
+        run: |
+          mkdir -p Payload
+          mv build/ios/iphoneos/Runner.app Payload/
+          zip -r MiniGamesHub.ipa Payload
+
+      # 7. رفع ملف الـ IPA كـ Artifact في GitHub لتستطيع تنزيله
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-ipa
+          path: MiniGamesHub.ipa

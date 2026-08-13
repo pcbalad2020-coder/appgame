@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Arcade Runner</title>
+<style>
+  :root {
+    --obsidian: #0B0D14;
+    --surface: #141826;
+    --neon-purple: #9B5CFF;
+    --neon-cyan: #34F5C5;
+    --neon-pink: #FF4FA0;
+    --neon-amber: #FFC24B;
+    --text-primary: #F3F4F8;
+    --text-secondary: #9198AC;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: var(--obsidian); overflow: hidden;
+    touch-action: none;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    user-select: none; -webkit-user-select: none;
+  }
+
+  #app { display: flex; flex-direction: column; height: 100%; padding: 10px 10px env(safe-area-inset-bottom, 10px); }
+
+  #hud {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px; gap: 8px; flex-shrink: 0;
+  }
+
+  .hud-pill {
+    background: var(--surface); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px; padding: 7px 12px; display: flex; align-items: center;
+    gap: 6px; min-width: 64px;
+  }
+
+  .hud-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+  .hud-value { font-size: 17px; font-weight: 800; color: var(--text-primary); }
+  .hud-sub { font-size: 10px; font-weight: 700; color: var(--neon-cyan); margin-top: 1px; }
+
+  #pause-btn {
+    background: var(--surface); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px;
+    width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+    color: var(--text-primary); font-size: 15px; cursor: pointer; flex-shrink: 0;
+  }
+
+  #level-banner {
+    position: absolute; top: 54px; left: 50%; transform: translateX(-50%) scale(0.8);
+    font-size: 14px; font-weight: 800; padding: 6px 16px; border-radius: 20px;
+    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple)); color: #071018;
+    opacity: 0; pointer-events: none; z-index: 20; white-space: nowrap;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    box-shadow: 0 6px 18px rgba(52, 245, 197, 0.4);
+  }
+  #level-banner.show { opacity: 1; transform: translateX(-50%) scale(1); }
+
+  #stage-wrap {
+    position: relative; flex: 1; background: var(--surface);
+    border-radius: 20px; border: 1px solid rgba(255,255,255,0.08); overflow: hidden;
+    box-shadow: 0 12px 32px rgba(155, 92, 255, 0.12);
+  }
+
+  #stage { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  #overlay, #pause-overlay {
+    position: fixed; inset: 0; background: rgba(11, 13, 20, 0.92); display: none;
+    align-items: center; justify-content: center; flex-direction: column; z-index: 50;
+    backdrop-filter: blur(4px); padding: 24px;
+  }
+  #overlay.visible, #pause-overlay.visible { display: flex; }
+
+  #overlay h1, #pause-overlay h1 {
+    font-size: 26px; font-weight: 800;
+    background: linear-gradient(90deg, var(--neon-cyan), var(--neon-purple));
+    -webkit-background-clip: text; background-clip: text; color: transparent; margin: 0 0 6px;
+    text-align: center;
+  }
+  #overlay p { color: var(--text-secondary); font-size: 14px; margin: 0 0 4px; text-align: center; }
+  #overlay .best-note { font-size: 12px; color: var(--neon-amber); margin-bottom: 22px; }
+
+  .btn {
+    border: none; border-radius: 14px; padding: 14px 28px; font-size: 15px; font-weight: 700;
+    color: #fff; cursor: pointer; margin: 6px 0; min-width: 220px;
+  }
+  .btn-primary { background: linear-gradient(90deg, var(--neon-purple), var(--neon-pink)); box-shadow: 0 8px 20px rgba(255, 79, 160, 0.35); }
+  .btn-secondary { background: var(--surface); border: 1px solid rgba(255,255,255,0.12); color: var(--text-primary); }
+
+  #howto { margin-top: 8px; font-size: 11px; color: var(--text-secondary); text-align: center; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div class="hud-pill">
+      <div>
+        <div class="hud-label">Score</div>
+        <div class="hud-value" id="score-value">0</div>
+        <div class="hud-sub" id="level-value">Lv 1</div>
+      </div>
+    </div>
+    <div class="hud-pill">
+      <div>
+        <div class="hud-label">Coins</div>
+        <div class="hud-value" id="coins-value">0</div>
+      </div>
+    </div>
+    <div class="hud-pill">
+      <div>
+        <div class="hud-label">Best</div>
+        <div class="hud-value" id="best-value">0</div>
+      </div>
+    </div>
+    <div id="pause-btn">⏸</div>
+  </div>
+
+  <div id="stage-wrap">
+    <canvas id="stage"></canvas>
+    <div id="level-banner">Level Up!</div>
+  </div>
+
+  <div id="howto">Tap anywhere to jump. Chain jumps over obstacles and grab coins.</div>
+</div>
+
+<div id="overlay">
+  <h1 id="overlay-title">You Crashed!</h1>
+  <p id="overlay-subtitle">Score: 0</p>
+  <p class="best-note" id="overlay-best"></p>
+  <button class="btn btn-primary" id="btn-extra-life">❤️ Watch Ad to Continue</button>
+  <button class="btn btn-secondary" id="btn-restart">Restart</button>
+</div>
+
+<div id="pause-overlay">
+  <h1>Paused</h1>
+  <button class="btn btn-primary" id="btn-resume">Resume</button>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // =========================================================
+  // Haptic + sound engines (identical pattern across every game in the
+  // hub, so the Flutter host's mute toggle and HapticBridge channel
+  // work without special-casing per game).
+  // =========================================================
+  function haptic(type) {
+    try {
+      if (window.HapticBridge && window.HapticBridge.postMessage) {
+        window.HapticBridge.postMessage(type);
+      }
+    } catch (e) {}
+  }
+
+  var SoundEngine = (function () {
+    var ctx = null;
+    var muted = false;
+
+    function ensureContext() {
+      if (!ctx) {
+        var AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) ctx = new AudioCtx();
+      }
+      if (ctx && ctx.state === 'suspended') ctx.resume();
+      return ctx;
+    }
+
+    function tone(freq, duration, type, volume) {
+      if (muted) return;
+      var audioCtx = ensureContext();
+      if (!audioCtx) return;
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.value = freq;
+      gain.gain.value = volume || 0.05;
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    return {
+      setMuted: function (v) { muted = !!v; },
+      jump: function () { tone(600, 0.09, 'square', 0.05); },
+      coin: function () { tone(1046, 0.08, 'sine', 0.05); setTimeout(function () { tone(1318, 0.1, 'sine', 0.05); }, 60); },
+      crash: function () { tone(120, 0.35, 'sawtooth', 0.09); },
+      levelUp: function () { tone(523, 0.12, 'sine', 0.06); setTimeout(function () { tone(784, 0.18, 'sine', 0.06); }, 110); }
+    };
+  })();
+
+  // =========================================================
+  // Config / progressive difficulty
+  // =========================================================
+  var STORAGE_KEY = 'arcade_runner_best_score';
+  var SCORE_PER_LEVEL = 200;
+  var MAX_LEVEL = 10;
+  var GRAVITY = 2200;
+  var JUMP_VELOCITY = -780;
+  var GROUND_RATIO = 0.78; // ground line as a fraction of stage height
+
+  function difficultyForLevel(level) {
+    var l = Math.min(level, MAX_LEVEL);
+    return {
+      // World scroll speed in px/sec — climbs with level, capped so it
+      // never becomes literally unreactable on a phone screen.
+      speed: 260 + l * 34,
+      minGapPx: Math.max(260 - l * 8, 150),
+      maxGapPx: Math.max(420 - l * 10, 240),
+      obstacleTallChance: Math.min(0.15 + l * 0.03, 0.45)
+    };
+  }
+
+  // =========================================================
+  // Canvas setup
+  // =========================================================
+  var canvas = document.getElementById('stage');
+  var ctx2d = canvas.getContext('2d');
+  var stageWrap = document.getElementById('stage-wrap');
+  var W = 0, H = 0, groundY = 0, DPR = Math.max(window.devicePixelRatio || 1, 1);
+
+  function resizeCanvas() {
+    var rect = stageWrap.getBoundingClientRect();
+    W = rect.width; H = rect.height;
+    groundY = H * GROUND_RATIO;
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx2d.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  // =========================================================
+  // Entities
+  // =========================================================
+  var PLAYER_SIZE = 30;
+  var player = { x: 70, y: 0, vy: 0, size: PLAYER_SIZE, onGround: true, invulnerable: 0 };
+  var obstacles = []; // { x, w, h, passed }
+  var coins = [];     // { x, y, r, collected }
+  var particles = [];
+  var bgLayers = [];  // parallax dots/hills
+
+  var score = 0;
+  var coinsCollected = 0;
+  var currentLevel = 1;
+  var distance = 0;
+  var nextObstacleX = 0;
+  var isGameOver = false;
+  var isPaused = false;
+  var lastFrameTime = 0;
+  var rafId = null;
+
+  var scoreEl = document.getElementById('score-value');
+  var levelEl = document.getElementById('level-value');
+  var coinsEl = document.getElementById('coins-value');
+  var bestEl = document.getElementById('best-value');
+  var overlayEl = document.getElementById('overlay');
+  var overlayTitleEl = document.getElementById('overlay-title');
+  var overlaySubtitleEl = document.getElementById('overlay-subtitle');
+  var overlayBestEl = document.getElementById('overlay-best');
+  var btnRestart = document.getElementById('btn-restart');
+  var btnExtraLife = document.getElementById('btn-extra-life');
+  var levelBannerEl = document.getElementById('level-banner');
+  var pauseBtn = document.getElementById('pause-btn');
+  var pauseOverlayEl = document.getElementById('pause-overlay');
+  var btnResume = document.getElementById('btn-resume');
+
+  function initParallax() {
+    bgLayers = [];
+    for (var i = 0; i < 16; i++) {
+      bgLayers.push({
+        x: Math.random() * W,
+        y: groundY - 10 - Math.random() * (groundY * 0.5),
+        size: 20 + Math.random() * 40,
+        speedFactor: 0.25 + Math.random() * 0.25
+      });
+    }
+  }
+
+  function resetEntities() {
+    obstacles = [];
+    coins = [];
+    particles = [];
+    player.y = groundY - player.size / 2;
+    player.vy = 0;
+    player.onGround = true;
+    player.invulnerable = 0;
+    distance = 0;
+    nextObstacleX = W + 200;
+  }
+
+  // =========================================================
+  // Input — tap anywhere to jump.
+  // =========================================================
+  function tryJump() {
+    if (isGameOver || isPaused) return;
+    if (player.onGround) {
+      player.vy = JUMP_VELOCITY;
+      player.onGround = false;
+      SoundEngine.jump();
+      haptic('light');
+    }
+  }
+
+  canvas.addEventListener('touchstart', function (e) { e.preventDefault(); tryJump(); }, { passive: false });
+  canvas.addEventListener('mousedown', tryJump);
+
+  // =========================================================
+  // Spawning
+  // =========================================================
+  function spawnObstacleIfNeeded() {
+    if (nextObstacleX > W + 40) return;
+    var diff = difficultyForLevel(currentLevel);
+    var isTall = Math.random() < diff.obstacleTallChance;
+    var h = isTall ? 54 + Math.random() * 20 : 30 + Math.random() * 14;
+    var w = 24 + Math.random() * 10;
+    obstacles.push({ x: nextObstacleX, w: w, h: h, passed: false });
+
+    // Occasionally place a coin arc above the gap after this obstacle,
+    // rewarding a well-timed jump without blocking the path.
+    if (Math.random() < 0.55) {
+      var coinBaseX = nextObstacleX + w + 40;
+      var coinCount = 3 + Math.floor(Math.random() * 3);
+      for (var i = 0; i < coinCount; i++) {
+        coins.push({
+          x: coinBaseX + i * 26,
+          y: groundY - 46 - Math.sin(i / (coinCount - 1) * Math.PI) * 40,
+          r: 7,
+          collected: false
+        });
+      }
+    }
+
+    var gap = diff.minGapPx + Math.random() * (diff.maxGapPx - diff.minGapPx);
+    nextObstacleX += w + gap;
+  }
+
+  function spawnCrashParticles(x, y, color) {
+    for (var i = 0; i < 12; i++) {
+      var angle = Math.random() * Math.PI * 2;
+      var speed = 80 + Math.random() * 140;
+      particles.push({
+        x: x, y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 100,
+        life: 0.5 + Math.random() * 0.3,
+        color: color,
+        size: 2 + Math.random() * 2.5
+      });
+    }
+  }
+
+  // =========================================================
+  // Score / level
+  // =========================================================
+  var levelBannerTimeout = null;
+  function addScore(amount) {
+    score += amount;
+    scoreEl.textContent = String(score);
+    var newLevel = 1 + Math.min(Math.floor(score / SCORE_PER_LEVEL), MAX_LEVEL - 1);
+    if (newLevel > currentLevel) {
+      currentLevel = newLevel;
+      levelEl.textContent = 'Lv ' + currentLevel;
+      SoundEngine.levelUp();
+      haptic('success');
+      clearTimeout(levelBannerTimeout);
+      levelBannerEl.textContent = 'Level ' + currentLevel + '! Faster now';
+      levelBannerEl.classList.add('show');
+      levelBannerTimeout = setTimeout(function () { levelBannerEl.classList.remove('show'); }, 1200);
+    }
+  }
+
+  // =========================================================
+  // Game loop
+  // =========================================================
+  function update(dt) {
+    var diff = difficultyForLevel(currentLevel);
+    var speed = diff.speed;
+
+    distance += speed * dt;
+    addScore(Math.round(speed * dt * 0.12));
+
+    if (player.invulnerable > 0) player.invulnerable -= dt;
+
+    // Player physics.
+    player.vy += GRAVITY * dt;
+    player.y += player.vy * dt;
+    var groundLevel = groundY - player.size / 2;
+    if (player.y >= groundLevel) {
+      player.y = groundLevel;
+      player.vy = 0;
+      player.onGround = true;
+    }
+
+    // Scroll world.
+    spawnObstacleIfNeeded();
+    nextObstacleX -= speed * dt;
+    obstacles.forEach(function (o) { o.x -= speed * dt; });
+    obstacles = obstacles.filter(function (o) { return o.x + o.w > -20; });
+
+    coins.forEach(function (c) { c.x -= speed * dt; });
+    coins = coins.filter(function (c) { return c.x > -20 && !c.collected; });
+
+    bgLayers.forEach(function (b) {
+      b.x -= speed * dt * b.speedFactor;
+      if (b.x < -60) b.x = W + 60;
+    });
+
+    // Coin collection.
+    coins.forEach(function (c) {
+      if (c.collected) return;
+      var dx = c.x - player.x;
+      var dy = c.y - player.y;
+      if (Math.sqrt(dx * dx + dy * dy) < c.r + player.size / 2) {
+        c.collected = true;
+        coinsCollected++;
+        coinsEl.textContent = String(coinsCollected);
+        addScore(20);
+        SoundEngine.coin();
+      }
+    });
+
+    // Obstacle collision (AABB against player's square hitbox).
+    if (player.invulnerable <= 0) {
+      for (var i = 0; i < obstacles.length; i++) {
+        var o = obstacles[i];
+        var obstacleTop = groundY - o.h;
+        var px1 = player.x - player.size / 2, px2 = player.x + player.size / 2;
+        var py1 = player.y - player.size / 2, py2 = player.y + player.size / 2;
+        var ox1 = o.x, ox2 = o.x + o.w;
+        var oy1 = obstacleTop, oy2 = groundY;
+        if (px2 > ox1 && px1 < ox2 && py2 > oy1 && py1 < oy2) {
+          crashPlayer();
+          break;
+        }
+      }
+    }
+
+    // Particles.
+    for (var pi = particles.length - 1; pi >= 0; pi--) {
+      var p = particles[pi];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += GRAVITY * 0.4 * dt;
+      p.life -= dt;
+      if (p.life <= 0) particles.splice(pi, 1);
+    }
+  }
+
+  function crashPlayer() {
+    spawnCrashParticles(player.x, player.y, '#FF4FA0');
+    SoundEngine.crash();
+    haptic('heavy');
+    endGame();
+  }
+
+  function draw() {
+    ctx2d.clearRect(0, 0, W, H);
+
+    // Parallax background shapes.
+    ctx2d.fillStyle = 'rgba(155, 92, 255, 0.12)';
+    bgLayers.forEach(function (b) {
+      ctx2d.beginPath();
+      ctx2d.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+      ctx2d.fill();
+    });
+
+    // Ground line.
+    ctx2d.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx2d.lineWidth = 2;
+    ctx2d.beginPath();
+    ctx2d.moveTo(0, groundY);
+    ctx2d.lineTo(W, groundY);
+    ctx2d.stroke();
+
+    // Coins.
+    coins.forEach(function (c) {
+      if (c.collected) return;
+      ctx2d.save();
+      ctx2d.shadowColor = '#FFC24B';
+      ctx2d.shadowBlur = 8;
+      ctx2d.fillStyle = '#FFC24B';
+      ctx2d.beginPath();
+      ctx2d.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+      ctx2d.fill();
+      ctx2d.restore();
+    });
+
+    // Obstacles.
+    obstacles.forEach(function (o) {
+      ctx2d.save();
+      ctx2d.shadowColor = '#FF4FA0';
+      ctx2d.shadowBlur = 10;
+      ctx2d.fillStyle = '#FF4FA0';
+      ctx2d.fillRect(o.x, groundY - o.h, o.w, o.h);
+      ctx2d.restore();
+    });
+
+    // Player.
+    ctx2d.save();
+    var flashing = player.invulnerable > 0 && Math.floor(player.invulnerable * 10) % 2 === 0;
+    ctx2d.globalAlpha = flashing ? 0.4 : 1;
+    ctx2d.translate(player.x, player.y);
+    ctx2d.shadowColor = '#34F5C5';
+    ctx2d.shadowBlur = 14;
+    ctx2d.fillStyle = '#34F5C5';
+    var s = player.size;
+    ctx2d.beginPath();
+    ctx2d.roundRect ? ctx2d.roundRect(-s / 2, -s / 2, s, s, 8) : ctx2d.rect(-s / 2, -s / 2, s, s);
+    ctx2d.fill();
+    ctx2d.restore();
+
+    // Particles.
+    particles.forEach(function (p) {
+      ctx2d.globalAlpha = Math.max(p.life, 0);
+      ctx2d.fillStyle = p.color;
+      ctx2d.beginPath();
+      ctx2d.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx2d.fill();
+    });
+    ctx2d.globalAlpha = 1;
+  }
+
+  function loop(timestamp) {
+    if (!lastFrameTime) lastFrameTime = timestamp;
+    var dt = Math.min((timestamp - lastFrameTime) / 1000, 0.05);
+    lastFrameTime = timestamp;
+
+    if (!isGameOver && !isPaused) {
+      update(dt);
+    }
+    draw();
+    rafId = requestAnimationFrame(loop);
+  }
+
+  // =========================================================
+  // Lifecycle
+  // =========================================================
+  function endGame() {
+    isGameOver = true;
+
+    var best = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+    var isNewBest = score > best;
+    if (isNewBest) { best = score; localStorage.setItem(STORAGE_KEY, String(best)); }
+    bestEl.textContent = String(best);
+
+    overlayTitleEl.textContent = 'You Crashed!';
+    overlaySubtitleEl.textContent = 'Score: ' + score + '  •  Level ' + currentLevel + '  •  ' + coinsCollected + ' coins';
+    overlayBestEl.textContent = isNewBest ? '🏆 New Best Score!' : '';
+    overlayEl.classList.add('visible');
+  }
+
+  function restartGame() {
+    score = 0;
+    coinsCollected = 0;
+    currentLevel = 1;
+    isGameOver = false;
+    isPaused = false;
+    scoreEl.textContent = '0';
+    coinsEl.textContent = '0';
+    levelEl.textContent = 'Lv 1';
+    overlayEl.classList.remove('visible');
+    pauseOverlayEl.classList.remove('visible');
+    resetEntities();
+  }
+
+  function togglePause() {
+    if (isGameOver) return;
+    isPaused = !isPaused;
+    pauseOverlayEl.classList.toggle('visible', isPaused);
+    pauseBtn.textContent = isPaused ? '▶' : '⏸';
+    haptic('light');
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden && !isGameOver && !isPaused) togglePause();
+  });
+
+  // ---- Host bridge hooks ----
+  window.onExtraLifeGranted = function () {
+    haptic('success');
+    if (isGameOver) {
+      // Continue the run in place (keeps score/level/coins), with a
+      // brief invulnerability window so the player isn't punished for
+      // whatever caused the crash still being on screen.
+      isGameOver = false;
+      overlayEl.classList.remove('visible');
+      player.y = groundY - player.size / 2;
+      player.vy = 0;
+      player.onGround = true;
+      player.invulnerable = 2.5;
+      // Clear the obstacle that likely caused the crash so the player
+      // has a fair restart window.
+      obstacles = obstacles.filter(function (o) { return o.x > player.x + 80; });
+    } else {
+      player.invulnerable = Math.max(player.invulnerable, 2.5);
+    }
+  };
+
+  window.setGameMuted = function (value) { SoundEngine.setMuted(value); };
+
+  bestEl.textContent = String(parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10));
+
+  btnRestart.addEventListener('click', restartGame);
+  pauseBtn.addEventListener('click', togglePause);
+  btnResume.addEventListener('click', togglePause);
+  btnExtraLife.addEventListener('click', function () {
+    if (window.ArcadeRunnerBridge && window.ArcadeRunnerBridge.requestExtraLife) {
+      window.ArcadeRunnerBridge.requestExtraLife();
+    } else {
+      btnExtraLife.textContent = 'Tap the ❤️ button above to watch an ad';
+      setTimeout(function () { btnExtraLife.textContent = '❤️ Watch Ad to Continue'; }, 2000);
+    }
+  });
+
+  // ---- Boot ----
+  resizeCanvas();
+  initParallax();
+  resetEntities();
+  rafId = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+name: minigames_hub
+description: >
+  ألعاب أونلاين مجانية — مركز ألعاب HTML5 سريع مع ثيم ليلي ونهاري،
+  واجهة عربية/إنجليزية، وتحقيق دخل عبر AdMob.
+publish_to: 'none'
+version: 1.2.0+3
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  # 3.27+ مطلوب: الواجهة تستخدم Color.withValues() بدل withOpacity.
+  # ملاحظة: خاصية Switch.activeThumbColor أحدث من ذلك. إن أعطى
+  # flutter analyze خطأ عليها، إما أن ترفع Flutter أو تبدّلها في
+  # main.dart إلى activeColor.
+  flutter: '>=3.27.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # --- الإعلانات ---
+  google_mobile_ads: ^5.1.0
+
+  # --- عرض الألعاب ---
+  webview_flutter: ^4.8.0
+  webview_flutter_android: ^3.16.3
+  webview_flutter_wkwebview: ^3.14.0
+
+  # --- تحسينات الواجهة ---
+  shimmer: ^3.0.0
+
+  # --- الحفظ المحلي (الإعدادات + المفضّلة + الإحصاءات + العملات) ---
+  shared_preferences: ^2.2.0
+
+  # --- مشاركة الألعاب مع الأصدقاء ---
+  share_plus: ^10.1.2
+
+  # --- نافذة تقييم التطبيق داخل المتجر ---
+  in_app_review: ^2.0.9
+
+  # --- التذكير اليومي بلعبة اليوم ---
+  flutter_local_notifications: ^18.0.1
+  # مطلوبة من flutter_local_notifications لجدولة وقت محلي صحيح
+  timezone: ^0.9.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+  # يولّد أيقونات أندرويد و iOS من الصور في assets/
+  flutter_launcher_icons: ^0.14.4
+
+# =========================================================================
+# إعداد توليد الأيقونات
+#
+# شغّله بأمر واحد بعد أي تغيير في صور الأيقونة:
+#   dart run flutter_launcher_icons
+#
+# ثم flutter clean قبل البناء، وإلا بقيت الأيقونة القديمة ظاهرة.
+#
+# هذه الكتلة في أقصى اليسار عمداً — إن أُزيحت للداخل لن تجدها الحزمة.
+# =========================================================================
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+
+  # الأيقونة الكاملة: تُستخدم لـ iOS وللأيقونة القديمة على أندرويد 7 وأقدم.
+  image_path: "assets/app_icon_1024.png"
+
+  # الأيقونة التكيّفية لأندرويد 8+: لون خلفية + طبقة مقدمة شفافة.
+  adaptive_icon_background: "#4338CA"
+  adaptive_icon_foreground: "assets/adaptive_foreground_1024.png"
+
+  # أيقونة متناغمة مع ثيم النظام في أندرويد 13+.
+  adaptive_icon_monochrome: "assets/adaptive_foreground_1024.png"
+
+  # إلزامي: أبل ترفض أي أيقونة تحتوي قناة شفافية عند الرفع للمتجر.
+  remove_alpha_ios: true
+
+  min_sdk_android: 23
+
+flutter:
+  uses-material-design: true
+
+  # =====================================================================
+  # الأصول المحزومة داخل التطبيق.
+  #
+  # مجلدات assets/games/* حُذفت من هنا: الألعاب المدمجة الثلاث أُزيلت من
+  # الكتالوج لأنها بلا ملفات لعب، وإدراج مجلد غير موجود يجعل
+  # `flutter pub get` يفشل برسالة "unable to find directory entry".
+  #
+  # صور الأيقونة (app_icon_*.png و adaptive_*.png) في assets/ غير مدرجة
+  # عمداً: تقرأها flutter_launcher_icons من القرص وقت التوليد فقط،
+  # وإدراجها هنا يحشرها داخل حجم التطبيق بلا فائدة.
+  #
+  # عند إضافة لعبة محلية لاحقاً: ضع ملفاتها في assets/games/<id>/
+  # وأضف سطرها هنا، ثم أضف Game(...) إلى bundledGames في main.dart.
+  # =====================================================================
+  assets:
+    - assets/thumbnails/
